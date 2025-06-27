@@ -2070,6 +2070,9 @@ static int f2fs_ioc_start_atomic_write(struct file *filp)
 	struct inode *pinode;
 	int ret;
 
+	if (!(filp->f_mode & FMODE_WRITE))
+		return -EBADF;
+
 	if (!inode_owner_or_capable(inode))
 		return -EACCES;
 
@@ -2152,6 +2155,9 @@ static int f2fs_ioc_commit_atomic_write(struct file *filp)
 	struct inode *inode = file_inode(filp);
 	int ret;
 
+	if (!(filp->f_mode & FMODE_WRITE))
+		return -EBADF;
+
 	if (!inode_owner_or_capable(inode))
 		return -EACCES;
 
@@ -2185,6 +2191,9 @@ static int f2fs_ioc_abort_atomic_write(struct file *filp)
 	struct inode *inode = file_inode(filp);
 	int ret;
 
+	if (!(filp->f_mode & FMODE_WRITE))
+		return -EBADF;
+
 	if (!inode_owner_or_capable(inode))
 		return -EACCES;
 
@@ -2195,6 +2204,68 @@ static int f2fs_ioc_abort_atomic_write(struct file *filp)
 	inode_lock(inode);
 
 	f2fs_abort_atomic_write(inode, true);
+
+	inode_unlock(inode);
+	mnt_drop_write_file(filp);
+	return ret;
+}
+
+static int f2fs_ioc_release_volatile_write(struct file *filp)
+{
+	struct inode *inode = file_inode(filp);
+	int ret;
+
+	if (!(filp->f_mode & FMODE_WRITE))
+		return -EBADF;
+
+	if (!inode_owner_or_capable(inode))
+		return -EACCES;
+
+	ret = mnt_want_write_file(filp);
+	if (ret)
+		return ret;
+
+	inode_lock(inode);
+
+	if (!f2fs_is_volatile_file(inode))
+		goto out;
+
+	if (!f2fs_is_first_block_written(inode)) {
+		ret = truncate_partial_data_page(inode, 0, true);
+		goto out;
+	}
+
+	ret = punch_hole(inode, 0, F2FS_BLKSIZE);
+out:
+	inode_unlock(inode);
+	mnt_drop_write_file(filp);
+	return ret;
+}
+
+static int f2fs_ioc_abort_volatile_write(struct file *filp)
+{
+	struct inode *inode = file_inode(filp);
+	int ret;
+
+	if (!(filp->f_mode & FMODE_WRITE))
+		return -EBADF;
+
+	if (!inode_owner_or_capable(inode))
+		return -EACCES;
+
+	ret = mnt_want_write_file(filp);
+	if (ret)
+		return ret;
+
+	inode_lock(inode);
+
+	if (f2fs_is_atomic_file(inode))
+		drop_inmem_pages(inode);
+	if (f2fs_is_volatile_file(inode)) {
+		clear_inode_flag(inode, FI_VOLATILE_FILE);
+		stat_dec_volatile_write(inode);
+		ret = f2fs_do_sync_file(filp, 0, LLONG_MAX, 0, true);
+	}
 
 	inode_unlock(inode);
 
