@@ -18,6 +18,21 @@
 
 #include "uapi/ashmem.h"
 
+/* Tambahkan ini */
+#include <linux/list.h>
+
+struct ashmem_area;  // Forward declaration
+
+struct ashmem_range {
+	struct list_head unpinned;
+	struct list_head lru;
+	unsigned long pgstart;
+	unsigned long pgend;
+	unsigned int purged;
+	struct ashmem_area *asma;
+};
+
+
 /* support of 32bit userspace on 64bit platforms */
 #ifdef CONFIG_COMPAT
 #define COMPAT_ASHMEM_SET_SIZE		_IOW(__ASHMEMIOC, 3, compat_size_t)
