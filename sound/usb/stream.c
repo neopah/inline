@@ -333,6 +333,7 @@ static struct snd_pcm_chmap_elem *convert_chmap(int channels, unsigned int bits,
 }
 
 /*
+}
  * add this endpoint to the chip instance.
  * if a stream with the same endpoint already exists, append to it.
  * if not, create a new pcm stream. note, fp is added to the substream
@@ -801,4 +802,3 @@ int snd_usb_parse_audio_interface(struct snd_usb_audio *chip, int iface_no)
 	}
 	return 0;
 }
-
