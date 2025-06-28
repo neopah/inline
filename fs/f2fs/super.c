@@ -4050,6 +4050,7 @@ try_onemore:
 		goto free_sbi;
 
 	sb->s_fs_info = sbi;
+    atomic_set(&sbi->stat_info.volatile_write, 0);
 	sbi->raw_super = raw_super;
 
 	/* precompute checksum seed for metadata */
